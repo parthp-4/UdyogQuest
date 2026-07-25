@@ -1,0 +1,324 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SupportedIndustry {
+  FOOD
+  EXPORT_IMPORT
+}
+
+enum SourceStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  ARCHIVED
+}
+
+enum SourceKind {
+  WEB_PAGE
+  PDF
+  CIRCULAR
+  NOTIFICATION
+  FAQ
+  PORTAL
+  HELPLINE
+  OFFICE
+}
+
+enum ProfileStage {
+  IDEA
+  PRE_REGISTRATION
+  OPERATING
+  EXPANDING
+  EXPORT_READY
+}
+
+enum OwnershipType {
+  PROPRIETORSHIP
+  PARTNERSHIP
+  LLP
+  PRIVATE_LIMITED
+  SHG
+  COOPERATIVE
+  TRUST
+  OTHER
+}
+
+enum PremisesType {
+  RENTED
+  OWNED
+  SHARED
+  HOME_BASED
+  WAREHOUSE
+  FACTORY
+  UNKNOWN
+}
+
+enum DocumentStatus {
+  UPLOADED
+  EXTRACTED
+  VERIFIED
+  NEEDS_REVIEW
+  REJECTED
+  EXPIRED
+}
+
+enum EligibilityStatus {
+  ELIGIBLE
+  POTENTIAL
+  FUTURE_ELIGIBLE
+  NOT_ELIGIBLE
+  UNAVAILABLE
+}
+
+model Authority {
+  id          String   @id @default(cuid())
+  name        String
+  ministry    String?
+  jurisdiction String?
+  websiteUrl  String?
+  helpline    String?
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sources     GovernmentSource[]
+
+  @@unique([name, jurisdiction])
+}
+
+model GovernmentSource {
+  id                 String       @id @default(cuid())
+  authorityId        String
+  officialUrl        String
+  title              String
+  kind               SourceKind
+  status             SourceStatus @default(PENDING)
+  lastUpdated        DateTime?
+  fetchedAt          DateTime?
+  checksum           String?
+  sourceConfidence   Float        @default(0)
+  stateApplicability String?
+  districtApplicability String?
+  legalReferences    String[]
+  applicationPortal  String?
+  helpline           String?
+  email              String?
+  office             String?
+  metadata           Json         @default("{}")
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  authority          Authority    @relation(fields: [authorityId], references: [id], onDelete: Cascade)
+  artifacts          SourceArtifact[]
+  documents          KnowledgeDocument[]
+  rules              EligibilityRule[]
+  recommendations    RecommendationCitation[]
+
+  @@unique([officialUrl])
+  @@index([status, sourceConfidence])
+  @@index([stateApplicability, districtApplicability])
+}
+
+model SourceArtifact {
+  id          String   @id @default(cuid())
+  sourceId    String
+  url         String
+  title       String?
+  kind        SourceKind
+  checksum    String?
+  mimeType    String?
+  storedPath  String?
+  extractedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  source      GovernmentSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model KnowledgeDocument {
+  id             String            @id @default(cuid())
+  sourceId       String
+  industry       SupportedIndustry?
+  title          String
+  applicability  String?
+  eligibility    String?
+  requiredDocuments String?
+  benefits       String?
+  fees           String?
+  processingTime String?
+  renewal        String?
+  dependencies   String?
+  faqs           String?
+  validity       String?
+  rawText        String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  source         GovernmentSource  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  chunks         KnowledgeChunk[]
+
+  @@index([industry])
+}
+
+model KnowledgeChunk {
+  id          String   @id @default(cuid())
+  documentId  String
+  sourceId    String
+  content     String
+  tokenCount  Int
+  embedding   Json?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  document    KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId])
+}
+
+model EligibilityRule {
+  id              String            @id @default(cuid())
+  sourceId        String
+  industry        SupportedIndustry
+  title           String
+  description     String
+  ruleJson        Json
+  legalReference  String?
+  notificationUrl String?
+  validFrom       DateTime?
+  validUntil      DateTime?
+  state           String?
+  district        String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  source          GovernmentSource  @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  results         EligibilityResult[]
+
+  @@index([industry, state, district])
+}
+
+model BusinessProfile {
+  id                    String            @id @default(cuid())
+  userId                String?
+  businessName          String
+  businessCategory      SupportedIndustry
+  businessActivity      String
+  stage                 ProfileStage
+  state                 String
+  district              String
+  city                  String
+  pin                   String
+  ownership             OwnershipType
+  turnover              Decimal?
+  investment            Decimal?
+  employees             Int?
+  annualIncome          Decimal?
+  socialCategory        String?
+  gender                String?
+  age                   Int?
+  education             String?
+  existingRegistrations String[]
+  existingLicenses      String[]
+  hasGst                Boolean?
+  hasPan                Boolean?
+  hasAadhaar            Boolean?
+  hasUdyam              Boolean?
+  hasFssai              Boolean?
+  hasIec                Boolean?
+  hasFactoryLicense     Boolean?
+  premises              PremisesType
+  rental                Boolean?
+  owned                 Boolean?
+  manufacturing         Boolean?
+  trading               Boolean?
+  foodCategory          String?
+  coldStorage           Boolean?
+  warehouse             Boolean?
+  exportDestination     String?
+  importProducts        String?
+  bankAccount           Boolean?
+  loanStatus            String?
+  creditHistory         String?
+  mobile                String
+  email                 String
+  languages             String[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  documents             UserDocument[]
+  eligibilityResults    EligibilityResult[]
+  recommendations       Recommendation[]
+}
+
+model UserDocument {
+  id              String         @id @default(cuid())
+  profileId       String
+  fileName        String
+  mimeType        String
+  storageUrl      String
+  status          DocumentStatus @default(UPLOADED)
+  documentType    String?
+  expiryDate      DateTime?
+  extractedFields Json           @default("{}")
+  missingFields   String[]
+  mismatchFlags   String[]
+  reuseKey        String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  profile         BusinessProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, reuseKey])
+}
+
+model EligibilityResult {
+  id              String            @id @default(cuid())
+  profileId       String
+  ruleId          String
+  status          EligibilityStatus
+  reasons         String[]
+  unmetConditions String[]
+  evaluatedAt     DateTime          @default(now())
+
+  profile         BusinessProfile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  rule            EligibilityRule    @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+
+  @@unique([profileId, ruleId])
+}
+
+model Recommendation {
+  id               String            @id @default(cuid())
+  profileId         String
+  status            EligibilityStatus
+  title             String
+  why               String
+  expectedBenefit   String?
+  expectedTimeline  String?
+  documentsNeeded   String[]
+  officialPortal    String?
+  applicationSteps  String?
+  helpline          String?
+  relatedSchemes    String[]
+  alternatives      String[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  profile           BusinessProfile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  citations         RecommendationCitation[]
+}
+
+model RecommendationCitation {
+  id               String            @id @default(cuid())
+  recommendationId String
+  sourceId         String
+  quote            String?
+  createdAt        DateTime          @default(now())
+
+  recommendation   Recommendation    @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  source           GovernmentSource   @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+}
