@@ -82,6 +82,8 @@ npm run build
 npm run dev -- --hostname 127.0.0.1 --port 3001
 ```
 
+`npm run build` runs `prisma generate` before `next build`. This is required on Netlify because dependency caching can otherwise leave Prisma Client outdated.
+
 ## Environment Variables
 
 The demo runs without environment variables.
