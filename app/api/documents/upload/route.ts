@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
-import { isDatabaseConfigured, prisma } from "@/lib/db/prisma";
+import { prisma } from "@/lib/db/prisma";
 import { getDemoExtraction } from "@/lib/demo/corpus";
 import { extractDocumentWithGemini } from "@/lib/documents/extract";
-
-function useDemoCorpus() {
-  return process.env.NEXT_PUBLIC_DEMO_MODE !== "false" || !isDatabaseConfigured();
-}
+import { resolveRouteMode } from "@/lib/runtime/route-mode";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -16,7 +13,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "profileId and file are required" }, { status: 400 });
   }
 
-  if (useDemoCorpus()) {
+  const modeResult = resolveRouteMode();
+  if ("response" in modeResult) return modeResult.response;
+
+  if (modeResult.mode === "DEMO") {
     const extraction = getDemoExtraction(file.name);
     return NextResponse.json({
       document: {

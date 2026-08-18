@@ -17,33 +17,40 @@ export async function extractDocumentWithGemini(file: File): Promise<DocumentExt
 
   const ai = new GoogleGenAI({ apiKey });
   const bytes = Buffer.from(await file.arrayBuffer());
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            text:
-              "Extract only visible facts from this uploaded business document. Return JSON with documentType, expiry, missingPages, incorrectFields, mismatches, extractedFields, suggestedCorrections. If a field is not visible, use the exact unavailable sentence."
-          },
-          {
-            inlineData: {
-              mimeType: file.type || "application/octet-stream",
-              data: bytes.toString("base64")
+
+  let text: string;
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text:
+                "Extract only visible facts from this uploaded business document. Return JSON with documentType, expiry, missingPages, incorrectFields, mismatches, extractedFields, suggestedCorrections. If a field is not visible, use the exact unavailable sentence."
+            },
+            {
+              inlineData: {
+                mimeType: file.type || "application/octet-stream",
+                data: bytes.toString("base64")
+              }
             }
-          }
-        ]
+          ]
+        }
+      ],
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0
       }
-    ],
-    config: {
-      responseMimeType: "application/json",
-      temperature: 0
-    }
-  });
+    });
+    text = response.text ?? "";
+  } catch (error) {
+    return unavailableExtraction(`Gemini Vision request failed: ${error instanceof Error ? error.message : "unknown error"}.`);
+  }
 
   try {
-    return JSON.parse(response.text ?? "") as DocumentExtractionResult;
+    return JSON.parse(text) as DocumentExtractionResult;
   } catch {
     return unavailableExtraction("Gemini Vision response could not be parsed.");
   }

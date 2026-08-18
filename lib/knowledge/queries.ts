@@ -1,4 +1,5 @@
 import { isDatabaseConfigured, prisma } from "@/lib/db/prisma";
+import { isLiveMode } from "@/lib/runtime/mode";
 import {
   getDemoDependencyItems,
   getDemoKnowledgeArticles,
@@ -12,7 +13,7 @@ import {
 } from "@/lib/demo/corpus";
 
 function useDemoCorpus() {
-  return process.env.NEXT_PUBLIC_DEMO_MODE !== "false" || !isDatabaseConfigured();
+  return !isLiveMode();
 }
 
 export async function getKnowledgeSummary(): Promise<{ verifiedSources: number; documents: number; rules: number }> {

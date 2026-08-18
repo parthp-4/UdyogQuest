@@ -7,7 +7,7 @@ import { VERIFIED_UNAVAILABLE } from "@/lib/constants";
 
 type AssistantResponse = {
   answer: string;
-  citations: Array<{ title: string; authority: string; url: string }>;
+  citations: Array<{ title: string; authority: string; url: string; fetchedAt?: string | null }>;
   missingInformation: string[];
   suggestedNextAction: string;
 };
@@ -59,6 +59,7 @@ export function AssistantPanel() {
             answer.citations.map((citation) => (
               <a key={citation.url} className="rounded-md border p-3 text-sm hover:bg-secondary" href={citation.url} target="_blank" rel="noreferrer">
                 {citation.title} · {citation.authority}
+                {citation.fetchedAt ? ` · fetched ${new Date(citation.fetchedAt).toLocaleDateString()}` : ""}
               </a>
             ))
           ) : (

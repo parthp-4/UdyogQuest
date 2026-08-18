@@ -1,18 +1,26 @@
-import { readFile } from "node:fs/promises";
-import { ingestOfficialSource } from "../lib/ingestion/ingest-source";
-import { ingestionSourceSchema } from "../lib/ingestion/schema";
+import { getAppDataMode } from "../lib/runtime/mode";
+import { runIngestionForAllRegisteredSources, runIngestionForRegistryEntryId } from "../lib/ingestion/run-ingestion";
+import { prisma } from "../lib/db/prisma";
 
-const manifestPath = process.argv[2];
+const sourceRegistryEntryId = process.argv[2] === "--all" || !process.argv[2] ? null : process.argv[2];
 
-if (!manifestPath) {
-  throw new Error("Usage: npm run ingest -- ./official-sources.json");
+if (getAppDataMode() !== "LIVE") {
+  throw new Error(
+    "This script only runs against a live database. Set APP_DATA_MODE=live and DATABASE_URL, run `npm run prisma:migrate` and `npx prisma db seed` first, then re-run."
+  );
 }
 
-const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-const sources = Array.isArray(manifest) ? manifest : manifest.sources;
+const summary = sourceRegistryEntryId
+  ? await runIngestionForRegistryEntryId(sourceRegistryEntryId, "CLI")
+  : await runIngestionForAllRegisteredSources("CLI");
 
-for (const item of sources) {
-  const source = ingestionSourceSchema.parse(item);
-  const result = await ingestOfficialSource(source);
-  console.log(`Ingested ${source.officialUrl}: ${result.chunks} chunks`);
+console.log(`Ingestion run ${summary.runId}: ${summary.status}`);
+for (const result of summary.results) {
+  console.log(`  - ${result.label}: ${result.status} (${result.message})`);
+}
+
+await prisma.$disconnect();
+
+if (summary.status === "FAILED") {
+  process.exitCode = 1;
 }

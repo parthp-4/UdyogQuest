@@ -20,13 +20,17 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
           {articles.map((article) => (
             <Card key={article.id}>
               <CardHeader>
-                <CardTitle>{article.title}</CardTitle>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <CardTitle>{article.title}</CardTitle>
+                  <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold">{article.source.status ?? "VERIFIED"}</span>
+                </div>
                 <CardDescription>{article.summary ?? article.source.authority.name}</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 text-sm text-muted-foreground">
                 <div className="grid gap-3 lg:grid-cols-3">
                   <Info label="Authority" value={article.source.authority.name} />
                   <Info label="Last updated" value={article.source.lastUpdated?.toDateString() ?? VERIFIED_UNAVAILABLE} />
+                  <Info label="Fetched" value={article.source.fetchedAt ? new Date(article.source.fetchedAt).toLocaleString() : VERIFIED_UNAVAILABLE} />
                   <Info label="Applicability" value={article.applicability ?? VERIFIED_UNAVAILABLE} />
                   <Info label="Documents required" value={article.requiredDocuments ?? VERIFIED_UNAVAILABLE} />
                   <Info label="Fees" value={article.fees ?? VERIFIED_UNAVAILABLE} />

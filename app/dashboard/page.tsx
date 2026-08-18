@@ -4,8 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { HealthScoreChart } from "@/components/charts/health-score-chart";
 import { getDemoDashboardData } from "@/lib/demo/corpus";
+import { getRuntimeStatus } from "@/lib/runtime/mode";
 
-export default function DashboardPage() {
+const modeBadgeClass: Record<string, string> = {
+  LIVE: "bg-emerald-50 text-emerald-700",
+  DEMO: "bg-amber-50 text-amber-800",
+  UNAVAILABLE: "bg-rose-50 text-rose-700"
+};
+
+export default async function DashboardPage() {
+  const runtimeStatus = await getRuntimeStatus();
   const dashboard = getDemoDashboardData();
   const primary = dashboard.profileCards[0];
 
@@ -16,11 +24,21 @@ export default function DashboardPage() {
         title="Dashboard"
         description="Demo-ready operating view for Priya's food business and Rahul's export/import workflow, powered by a curated official-source corpus."
         action={
-          <Button asChild>
-            <Link href="/profile">View profiles</Link>
-          </Button>
+          <div className="flex items-center gap-3">
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${modeBadgeClass[runtimeStatus.mode]}`}>{runtimeStatus.mode} MODE</span>
+            <Button asChild>
+              <Link href="/profile">View profiles</Link>
+            </Button>
+          </div>
         }
       />
+      {runtimeStatus.mode !== "DEMO" ? (
+        <div className="mx-5 mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 lg:mx-8">
+          {runtimeStatus.mode === "LIVE"
+            ? "Live mode is active for knowledge, registrations, schemes, and the assistant. This dashboard's profile/readiness cards still read the demo corpus -- persisted profile dashboards are a later milestone (Phase 2E), not this slice."
+            : (runtimeStatus.reason ?? "Runtime mode is unavailable.")}
+        </div>
+      ) : null}
       <div className="grid gap-5 p-5 lg:grid-cols-3 lg:p-8">
         <Card className="lg:col-span-2">
           <CardHeader>

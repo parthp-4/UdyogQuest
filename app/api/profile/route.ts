@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
-import { isDatabaseConfigured, prisma } from "@/lib/db/prisma";
+import { prisma } from "@/lib/db/prisma";
 import { getDemoLatestProfile } from "@/lib/demo/corpus";
 import { onboardingSchema } from "@/lib/profile/onboarding-schema";
-
-function useDemoCorpus() {
-  return process.env.NEXT_PUBLIC_DEMO_MODE !== "false" || !isDatabaseConfigured();
-}
+import { resolveRouteMode } from "@/lib/runtime/route-mode";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -15,7 +12,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ errors: parsed.error.flatten().fieldErrors }, { status: 400 });
   }
 
-  if (useDemoCorpus()) {
+  const modeResult = resolveRouteMode();
+  if ("response" in modeResult) return modeResult.response;
+
+  if (modeResult.mode === "DEMO") {
     return NextResponse.json({
       profile: {
         ...getDemoLatestProfile(),

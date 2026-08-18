@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 import { isDatabaseConfigured, prisma } from "@/lib/db/prisma";
 import { getDemoLatestProfile } from "@/lib/demo/corpus";
 import { onboardingSchema } from "@/lib/profile/onboarding-schema";
+import { isLiveMode } from "@/lib/runtime/mode";
 
 function useDemoCorpus() {
-  return process.env.NEXT_PUBLIC_DEMO_MODE !== "false" || !isDatabaseConfigured();
+  return !isLiveMode();
 }
 
 export async function createBusinessProfile(_: unknown, formData: FormData) {
@@ -42,7 +43,7 @@ export async function createBusinessProfile(_: unknown, formData: FormData) {
     return { ok: false, errors: parsed.error.flatten().fieldErrors };
   }
 
-  if (!isDatabaseConfigured()) {
+  if (useDemoCorpus()) {
     return { ok: true, profile: getDemoLatestProfile() };
   }
 

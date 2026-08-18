@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum SupportedIndustry {
@@ -14,9 +15,43 @@ enum SupportedIndustry {
 
 enum SourceStatus {
   PENDING
+  NEEDS_REVIEW
   VERIFIED
   REJECTED
   ARCHIVED
+}
+
+enum SourceRegistryStatus {
+  ACTIVE
+  PAUSED
+}
+
+enum ParserType {
+  HTML
+  PDF
+}
+
+enum IngestionTrigger {
+  MANUAL
+  CLI
+  CRON
+}
+
+enum IngestionRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  PARTIAL
+}
+
+enum IngestionEventStatus {
+  DISCOVERED
+  FETCHED
+  PARSED
+  UNCHANGED
+  CHANGED
+  REJECTED
+  FAILED
 }
 
 enum SourceKind {
@@ -88,6 +123,7 @@ model Authority {
   updatedAt   DateTime @updatedAt
 
   sources     GovernmentSource[]
+  sourceRegistryEntries SourceRegistryEntry[]
 
   @@unique([name, jurisdiction])
 }
@@ -95,6 +131,7 @@ model Authority {
 model GovernmentSource {
   id                 String       @id @default(cuid())
   authorityId        String
+  sourceRegistryEntryId String    @unique
   officialUrl        String
   title              String
   kind               SourceKind
@@ -115,14 +152,121 @@ model GovernmentSource {
   updatedAt          DateTime     @updatedAt
 
   authority          Authority    @relation(fields: [authorityId], references: [id], onDelete: Cascade)
+  sourceRegistryEntry SourceRegistryEntry @relation(fields: [sourceRegistryEntryId], references: [id], onDelete: Restrict)
   artifacts          SourceArtifact[]
   documents          KnowledgeDocument[]
   rules              EligibilityRule[]
   recommendations    RecommendationCitation[]
+  versions           SourceVersion[]
+  verificationRecords VerificationRecord[]
 
   @@unique([officialUrl])
   @@index([status, sourceConfidence])
   @@index([stateApplicability, districtApplicability])
+}
+
+/// The curated allowlist of official hosts/seed URLs the ingestion pipeline is permitted to fetch.
+/// A GovernmentSource can only be created through an existing SourceRegistryEntry (see ingestion workflow rule 1).
+model SourceRegistryEntry {
+  id                  String               @id @default(cuid())
+  authorityId         String
+  industry            SupportedIndustry
+  label               String
+  seedUrl             String
+  allowedHosts        String[]
+  parserType          ParserType
+  jurisdiction         String?
+  refreshPolicy       String
+  verificationPolicy  String
+  status              SourceRegistryStatus @default(ACTIVE)
+  lastSuccessfulRunAt DateTime?
+  lastChangedAt       DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  authority           Authority            @relation(fields: [authorityId], references: [id], onDelete: Restrict)
+  governmentSource     GovernmentSource?
+  runEvents           IngestionRunEvent[]
+
+  @@unique([seedUrl])
+  @@index([industry, status])
+}
+
+/// An immutable snapshot captured on each fetch. A new row is written only when the checksum changes;
+/// unchanged re-fetches update lastSuccessfulRunAt on the registry entry without creating a new version.
+model SourceVersion {
+  id          String   @id @default(cuid())
+  sourceId    String
+  checksum    String
+  fetchedAt   DateTime
+  httpStatus  Int
+  contentType String?
+  rawText     String
+  parsedText  String
+  isCurrent   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  source              GovernmentSource      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  verificationRecords VerificationRecord[]
+
+  @@index([sourceId, isCurrent])
+  @@index([sourceId, checksum])
+}
+
+/// Records why a source version was marked VERIFIED / NEEDS_REVIEW / REJECTED, per the verification policy
+/// that ran, so verification status is never assigned merely because a URL was reachable.
+model VerificationRecord {
+  id              String       @id @default(cuid())
+  sourceId        String
+  sourceVersionId String
+  status          SourceStatus
+  policy          String
+  notes           String?
+  checkedAt       DateTime     @default(now())
+
+  source        GovernmentSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  sourceVersion SourceVersion    @relation(fields: [sourceVersionId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, checkedAt])
+}
+
+/// One ingestion execution (manual, CLI, or the scheduled cron trigger). Concurrent RUNNING runs are
+/// prevented at the application layer before a new row is created.
+model IngestionRun {
+  id             String              @id @default(cuid())
+  trigger        IngestionTrigger
+  status         IngestionRunStatus  @default(RUNNING)
+  startedAt      DateTime            @default(now())
+  finishedAt     DateTime?
+  sourceCount    Int                 @default(0)
+  changedCount   Int                 @default(0)
+  unchangedCount Int                 @default(0)
+  failedCount    Int                 @default(0)
+  cursor         String?
+  createdAt      DateTime            @default(now())
+
+  events IngestionRunEvent[]
+
+  @@index([status, startedAt])
+}
+
+/// Per-source-entry outcome within a run: discovered/fetched/parsed/unchanged/changed/rejected/failed.
+model IngestionRunEvent {
+  id                    String                @id @default(cuid())
+  runId                 String
+  sourceRegistryEntryId String
+  status                IngestionEventStatus
+  httpStatus            Int?
+  checksum              String?
+  sourceVersionId       String?
+  message               String?
+  createdAt             DateTime              @default(now())
+
+  run                 IngestionRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  sourceRegistryEntry SourceRegistryEntry @relation(fields: [sourceRegistryEntryId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([sourceRegistryEntryId, createdAt])
 }
 
 model SourceArtifact {

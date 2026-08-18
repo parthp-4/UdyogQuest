@@ -5,7 +5,7 @@ import type { RetrievedChunk } from "@/lib/rag/retriever";
 
 export type AssistantAnswer = {
   answer: string;
-  citations: Array<{ title: string; authority: string; url: string }>;
+  citations: Array<{ title: string; authority: string; url: string; fetchedAt?: string | null; sourceVersionId?: string | null }>;
   missingInformation: string[];
   suggestedNextAction: string;
 };
@@ -24,35 +24,47 @@ export async function askGeminiFromSources(question: string, chunks: RetrievedCh
   }
 
   const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: assistantSystemPrompt },
-          {
-            text: JSON.stringify({
-              question,
-              retrievedSources: chunks.map((chunk) => ({
-                content: chunk.content,
-                title: chunk.sourceTitle,
-                authority: chunk.authority,
-                officialUrl: chunk.officialUrl,
-                lastUpdated: chunk.lastUpdated
-              }))
-            })
-          }
-        ]
-      }
-    ],
-    config: {
-      responseMimeType: "application/json",
-      temperature: 0
-    }
-  });
 
-  const text = response.text ?? "";
+  let text: string;
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: assistantSystemPrompt },
+            {
+              text: JSON.stringify({
+                question,
+                retrievedSources: chunks.map((chunk) => ({
+                  content: chunk.content,
+                  title: chunk.sourceTitle,
+                  authority: chunk.authority,
+                  officialUrl: chunk.officialUrl,
+                  lastUpdated: chunk.lastUpdated,
+                  fetchedAt: chunk.fetchedAt,
+                  sourceVersionId: chunk.sourceVersionId,
+                  verificationState: chunk.verificationState
+                }))
+              })
+            }
+          ]
+        }
+      ],
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0
+      }
+    });
+    text = response.text ?? "";
+  } catch (error) {
+    return {
+      ...unavailableAnswer(),
+      missingInformation: [`Gemini request failed: ${error instanceof Error ? error.message : "unknown error"}.`]
+    };
+  }
+
   try {
     return JSON.parse(text) as AssistantAnswer;
   } catch {
