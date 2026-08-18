@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/layout/page-shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { IngestionForm } from "@/components/forms/ingestion-form";
 import { SUPPORTED_INDUSTRIES } from "@/lib/constants";
 import { getLatestVerifiedSources } from "@/lib/knowledge/queries";
 
@@ -45,6 +46,15 @@ export default async function SettingsPage() {
                 <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold">Verified</span>
               </a>
             ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Add official source</CardTitle>
+            <CardDescription>Runtime ingestion is disabled for this demo. Submitting checks the request against the curated corpus instead of writing to a live database.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <IngestionForm />
           </CardContent>
         </Card>
         <Card>

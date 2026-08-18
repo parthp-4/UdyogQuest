@@ -87,6 +87,19 @@ Global search input
   -> route/detail navigation
 ```
 
+## Settings
+
+```text
+/settings
+  -> Demo mode summary
+  -> Verified source audit trail (getLatestVerifiedSources)
+  -> IngestionForm
+     -> POST /api/ingest/run
+     -> demo mode: returns fixed "ingestion disabled for the demo" message, no writes
+     -> database mode: would call lib/ingestion/ingest-source.ts (not wired into this route today)
+  -> Supported industries list
+```
+
 ## Change tracing checklist
 
 When a bug appears, trace in this order:

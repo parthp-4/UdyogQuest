@@ -26,6 +26,13 @@ This file records why implementation and product decisions were made. Agents mus
 - Why: future Claude Code and Codex runs need durable context, decision history, and data-flow knowledge independent of chat history.
 - Consequence: every agent must read these files at the start and update them before finishing.
 
+## 2026-08-18 - Surface source ingestion as a demo-safe form in Settings
+
+- Decision: render `IngestionForm` on `/settings` instead of deleting it or building a new admin surface.
+- Why: the component and its target route (`/api/ingest/run`) already existed and satisfy the project rule that every interactive control must trigger a real workflow; it was simply never imported, so it was dead code with no page exposing it.
+- Alternatives considered: delete the unused component (rejected — it is functioning, demo-safe, and matches the source-policy expectation of a visible ingestion pipeline path); build a dedicated `/settings/sources` route (rejected as unnecessary scope for a single form).
+- Consequences: Settings now has a fourth card. The route stays demo-safe since `/api/ingest/run` returns a fixed "disabled for the demo" message and performs no writes when no database is configured.
+
 ## Decision template
 
 ### YYYY-MM-DD - Short title
