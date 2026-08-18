@@ -66,10 +66,34 @@ export async function askGeminiFromSources(question: string, chunks: RetrievedCh
   }
 
   try {
-    return JSON.parse(text) as AssistantAnswer;
+    return normalizeAssistantAnswer(JSON.parse(text));
   } catch {
     return unavailableAnswer();
   }
+}
+
+/**
+ * Gemini's JSON output is not schema-enforced -- it has been observed returning
+ * missingInformation as a plain string instead of the required string[], which crashed
+ * the client's Array.prototype.map call. Coerce the parsed response into the exact
+ * AssistantAnswer shape before it ever reaches the client.
+ */
+function normalizeAssistantAnswer(raw: unknown): AssistantAnswer {
+  const value = (raw ?? {}) as Record<string, unknown>;
+  const rawMissingInformation = value.missingInformation;
+
+  const missingInformation = Array.isArray(rawMissingInformation)
+    ? rawMissingInformation.filter((item): item is string => typeof item === "string")
+    : typeof rawMissingInformation === "string" && rawMissingInformation.length > 0
+      ? [rawMissingInformation]
+      : [];
+
+  return {
+    answer: typeof value.answer === "string" && value.answer.length > 0 ? value.answer : VERIFIED_UNAVAILABLE,
+    citations: Array.isArray(value.citations) ? (value.citations as AssistantAnswer["citations"]) : [],
+    missingInformation,
+    suggestedNextAction: typeof value.suggestedNextAction === "string" ? value.suggestedNextAction : ""
+  };
 }
 
 export function unavailableAnswer(): AssistantAnswer {

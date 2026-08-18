@@ -86,6 +86,13 @@ AssistantPanel
                  -> on success: Gemini constrained to the evidence bundle, must reuse
                     each citation's exact fetchedAt/sourceVersionId, must only cite
                     VERIFIED sources (lib/ai/system-prompt.ts)
+                 -> normalizeAssistantAnswer() reconstructs the exact AssistantAnswer shape
+                    field-by-field from the parsed JSON before returning it -- Gemini's JSON
+                    output is syntactically valid but not schema-enforced (fixed 2026-08-18
+                    after missingInformation came back as a string instead of string[] and
+                    crashed the client's .map() call in production; see Decisions.md)
+  -> AssistantPanel normalizes the fetch response the same way before setAnswer() --
+     a second, independent guard against a malformed/unexpected API response shape
   -> JSON response { answer, citations[], missingInformation[], suggestedNextAction }
   -> render answer, citations (+ fetched date when present), and next action
 ```
@@ -94,9 +101,11 @@ The assistant must not answer from model memory. If no verified evidence is retr
 
 Live-verified 2026-08-18: with a real `GEMINI_API_KEY` and LIVE mode against the real database, a DGFT-relevant question returns a real, successful, grounded Gemini answer citing the actual retrieved chunk's exact `fetchedAt`/`sourceVersionId` -- the first time the full success path (not just the failure/degrade path) has been confirmed working end-to-end, not just built.
 
-## Deployment state (as of 2026-08-18 audit)
+## Deployment state (as of 2026-08-18 release)
 
-The linked Vercel project (`udyog-quest`, scope `parthporwal`) has all six required env vars (`APP_DATA_MODE`, `DATABASE_URL`, `DIRECT_URL`, `GEMINI_API_KEY`, `CRON_SECRET`, `NEXT_PUBLIC_APP_URL`) configured for Production and Preview. The current Production deployment, however, still serves the last **pushed** commit (`f19f36b`), which predates this entire Phase 2A/2B slice -- the working tree with runtime mode, the source registry, live ingestion, and live retrieval is still uncommitted locally. The old deployed code uses the pre-Phase-2 `NEXT_PUBLIC_DEMO_MODE` heuristic (not `APP_DATA_MODE`), and since that variable was never set on Vercel, Production currently still safely serves demo data -- no crash risk from the already-configured live-mode env vars, but also no live Phase 2 behavior until this branch is committed and pushed.
+The linked Vercel project (`udyog-quest`, scope `parthporwal`) has all six required env vars (`APP_DATA_MODE`, `DATABASE_URL`, `DIRECT_URL`, `GEMINI_API_KEY`, `CRON_SECRET`, `NEXT_PUBLIC_APP_URL`) configured for Production and Preview. This entire Phase 2A/2B slice was committed (`1f3418c`, "Phase 2 live product and Vercel deployment foundation") and pushed to `origin main`, triggering an automatic Vercel Production deployment (`dpl_4db3Z61g8gVAQXxFCk1HdZgvEBHt`), confirmed `Ready` and matching pushed `HEAD` (remote `main` SHA verified equal to local `HEAD`; the `udyog-quest-git-main-parthporwal.vercel.app` alias -- which Vercel's Git integration always points at the current tip of `main` -- resolves to this exact deployment).
+
+Post-deploy checks against `https://udyog-quest.vercel.app` (production): `/dashboard`, `/settings`, `/knowledge`, `/assistant` all `200`; `/dashboard` shows a genuine `LIVE` mode badge (not DEMO/UNAVAILABLE); `/knowledge` shows real `VERIFIED` badges sourced from the live database (not the demo corpus); unauthenticated `POST /api/ingest/run` returns `401` with no secret in the response body. Production is now genuinely running the Phase 2A/2B live product, not the pre-Phase-2 demo-only code.
 
 ## Profile and recommendations
 

@@ -9,6 +9,6 @@ Rules:
 5. Cite official sources by title, authority, and official URL.
 6. Every citation must reuse the exact fetchedAt and sourceVersionId values from the retrieved source it corresponds to. Do not invent or omit them.
 7. Only cite sources whose verificationState is "VERIFIED". If a retrieved source is not VERIFIED, do not use it as evidence.
-8. Return JSON with: answer, citations (each with title, authority, url, fetchedAt, sourceVersionId), missingInformation, suggestedNextAction.
+8. Return JSON with exactly these fields and types: answer (string), citations (array of objects, each with title, authority, url, fetchedAt, sourceVersionId -- use an empty array if there are none), missingInformation (array of strings -- use an empty array if nothing is missing, never a single string), suggestedNextAction (string).
 `;
 

@@ -35,7 +35,13 @@ export function AssistantPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question })
       });
-      setAnswer(await response.json());
+      const data = await response.json();
+      setAnswer({
+        answer: typeof data?.answer === "string" ? data.answer : VERIFIED_UNAVAILABLE,
+        citations: Array.isArray(data?.citations) ? data.citations : [],
+        missingInformation: Array.isArray(data?.missingInformation) ? data.missingInformation : [],
+        suggestedNextAction: typeof data?.suggestedNextAction === "string" ? data.suggestedNextAction : ""
+      });
     } finally {
       setLoading(false);
     }
